@@ -1,5 +1,5 @@
 package cost_MAP;
-
+//this is a comment
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -94,7 +94,7 @@ public class costMAP extends Application {
         toolBar1.setOrientation(Orientation.VERTICAL);
 
         HBox buttonArea = new HBox();
-        buttonArea.setSpacing(5);
+        buttonArea.setSpacing(100);
         VBox mapBox = new VBox();
 
         toolBar1.getItems().addAll(
@@ -164,7 +164,6 @@ public class costMAP extends Application {
                         System.out.println("Importing Landcover Data for Construction... ");
                         costList =  costs.landcoverInput(isSelectedPop, "Datasets/ASCII/landcover.asc");
                     }
-                    
                     if (chkDefaultSlope.isSelected()) {
                         System.out.println("Importing Slope Data ... ");
                         costList = costs.slopeInput(costList, isSelectedAspect, "Datasets/ASCII/slope.asc");
@@ -186,14 +185,14 @@ public class costMAP extends Application {
                         System.out.println("Importing Pipeline Data ... ");
                         costList = costs.addPipelineCorridor(costList,headerInfo, "Datasets/ASCII/pipelines.asc");
                     }
-                    BufferedWriter outputConstruction = new BufferedWriter(new FileWriter("Outputs\\Construction Costs.txt"));
+                    BufferedWriter outputConstruction = new BufferedWriter(new FileWriter("Outputs/Construction Costs.txt"));
                     
                     System.out.println("Calculating Distance ...");
                     costList = costs.solveDistance(headerInfo, distMult, costList, "Datasets/ASCII/landcover.asc");
                     System.out.println("Writing to files...");
                     costs.writeTxt(costList, headerInfo, outputConstruction);
                     System.out.println("Construction calculations are complete.");
-//                    
+
                     if (chkDefaultLandcover.isSelected()) {
                         System.out.println("Importing Landcover Data for ROWS ... ");
                         rowList =  costs.landcoverInput(isSelectedPop, "Datasets/ASCII/landcover.asc");
@@ -203,9 +202,9 @@ public class costMAP extends Application {
 ////                        rowList = costs.addPipelineCorridor(rowList,headerInfo, "Datasets/ASCII/pipelines.asc");
 ////                    }
                     rowList = costs.solveDistance(headerInfo, distMult, rowList, "Datasets/ASCII/landcover.asc");
-                    BufferedWriter outputROWS = new BufferedWriter(new FileWriter("Outputs\\RightOfWay Costs.txt"));
+                    BufferedWriter outputROWS = new BufferedWriter(new FileWriter("Outputs/RightOfWay Costs.txt"));
                     costs.writeTxt(rowList, headerInfo, outputROWS);
-//                    
+
                     System.out.println("The Rights of way calculations are complete. ");
                     
                 } catch (IOException ex) {
@@ -213,19 +212,15 @@ public class costMAP extends Application {
                 } catch (Exception ex) {
                     Logger.getLogger(costMAP.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                } 
-                
-            
-
+                }
         });
 
         canButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent e) {
                 //Just making sure stuff is working witht his print
-                System.out.println("Thank you for canceling. I can rest now.");
+                System.out.println("Thank you for cancelling. I can rest now.");
 
-                return;
             }
         });
         return new Scene(pane, 1050, 660);
