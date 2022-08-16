@@ -5,11 +5,12 @@
  */
 package cost_MAP;
 
+import org.w3c.dom.ls.LSOutput;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -21,11 +22,12 @@ import java.util.List;
 
 public class costSolver {
 //    
-    int[] rows = getRowPositions();
-    int[] cols = getColPositions();
-    
+    int[] rows = {0,-1,0,1,0,-1,-1,1,1};
+    int[] cols = {0, 0,1,0,-1,-1,1,1,-1};
+
     public Dictionary getHeader(String path) throws FileNotFoundException, IOException {
-        
+
+//returns the info as a header dictionary {NoData=-9999, CellSize=0.008333333333, xllCorner=-88.683333333822, Columns=220, Rows=174, yllCorner=37.641666667611}
 //        ArrayList header = new ArrayList();
         Dictionary header = new Hashtable();
         BufferedReader  br = new BufferedReader(new FileReader(path));
@@ -59,156 +61,232 @@ public class costSolver {
         String[] noDataline = line.split(delims);
         int noData = Integer.parseInt(noDataline[1]);
         header.put("NoData", noData);
-        
+        //System.out.println(header);//prints the header
         return header;
     }
 
-    public double[][] getDetails(Dictionary headerInfo, String path) throws FileNotFoundException, IOException {
-
+    public double[][] getDetails(Dictionary headerInfo, String path) throws FileNotFoundException, IOException
+    {
+        //returns the big number chunk below the header
         BufferedReader br = new BufferedReader(new FileReader(path));
         
         double [][] aoiMatrix = new double[(int) headerInfo.get("Rows")][(int) headerInfo.get("Columns")];
         //initiate reader
-        String line = br.readLine();
+        String line = br.readLine(); //ncol
         //read next line and then get number of rows
-        line = br.readLine();
+        line = br.readLine(); //nrows
+
+        line = br.readLine(); //xll corner
+
+        line = br.readLine(); //yll corner
+
+        line = br.readLine(); //cell size
+
+        line = br.readLine(); //no data
 
         line = br.readLine();
 
-        line = br.readLine();
-
-        line = br.readLine();
-
-        line = br.readLine();
-
-        line = br.readLine();
         while (line != null) {
             for (double[] aoiMatrix1 : aoiMatrix) {
                 String[] values = line.split("[ ]+");
                 for (int j = 0; j < values.length; j++) {
                     aoiMatrix1[j] = Double.parseDouble(values[j]);
-
                 }
                 line = br.readLine();
             }
         }
         br.close();
-
+    /*
+        for (double[] i : aoiMatrix){
+            for (double j : i){
+                System.out.print(j+"/");
+            }
+            System.out.println();
+        }
+    */
         return aoiMatrix;
-
     }
-    
-    public Dictionary landcoverInput(boolean isSelectedPop, String path) throws FileNotFoundException, IOException, Exception {
 
+    public Dictionary landcoverInput(boolean isSelectedPop, String path) throws FileNotFoundException, IOException, Exception
+    {
         //Read in landcover weighting
         ArrayList weights = new ArrayList();
         BufferedReader br1 = new BufferedReader(new FileReader("Datasets/weights/landcover.txt"));
         String line = br1.readLine();
         while ((line = br1.readLine()) != null) {
-            String[] splited = line.split("\\s");
+            String[] splited = line.split("\\s+");
+            //for (String i : splited)System.out.println(i);
             weights.add(splited[2]);
         }
         br1.close();
 
         Dictionary headerInfo = getHeader(path);
         double[][] nlcdMatrix = getDetails(headerInfo, path);
-        
 
-        //Create Output matrix
+        //Create Output matrix              //length returns the rows, [0].length returns the columns
         double[][] tempMatrix = new double[nlcdMatrix.length][nlcdMatrix[0].length];
         double[][] popMatrix = null;
-        
+
         //Read in population file if it exists
-        if (isSelectedPop == true) {
+        if (isSelectedPop) {
             System.out.println("Importing Population Data ...");
             popMatrix = getDetails(headerInfo, "Datasets/ASCII/population.asc");
         }
-        
-        for (int i = 0; i < nlcdMatrix.length; i++) {
 
-            for (int j = 0; j < nlcdMatrix[0].length; j++) {
+        for (int i = 0; i < nlcdMatrix.length; i++)
+        {
+            for (int j = 0; j < nlcdMatrix[0].length; j++)
+            {
                 //no data using mask
                 int value = (int) nlcdMatrix[i][j];
                 int a = (int) headerInfo.get("NoData");
-                
-                if (nlcdMatrix[i][j] == 21 || nlcdMatrix[i][j] == 22 || nlcdMatrix[i][j] == 23 || nlcdMatrix[i][j] == 24) {
-                    if (isSelectedPop != false) {
 
-                        double cellPop = cellPop(headerInfo,popMatrix, i, j);
-                        if (cellPop == 0) {
-                            tempMatrix[i][j] = 0.75;
-                        } else if (cellPop > 0 & cellPop <= 5) {
-                            tempMatrix[i][j] = 1;
-                        } else if (cellPop > 5 & cellPop <= 25) {
-                            tempMatrix[i][j] = 1.5;
-                        } else if (cellPop > 25 & cellPop <= 100) {
-
-                            tempMatrix[i][j] = 2.5;
-                        } else {
-                            tempMatrix[i][j] = 5;
-
-                        }
-
-                    } else {
-                        tempMatrix[i][j] = 5;
-                    }
-                }
-                switch(value){
-                    case 11:
+                switch(value)
+                {
+                    case 11://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(0));
                         break;
-                    case 12:
+                    case 12://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(1));
-                        break;    
-                    case 31:
+                        break;
+                    case 21:
+                    case 22:
+                    case 23:
+                    case 24:
+                        if (isSelectedPop)
+                        {
+                            double cellPop = cellPop(headerInfo,popMatrix, i, j);
+                            if (cellPop == 0)
+                            {
+                                tempMatrix[i][j] = 0.75;
+                            }
+                            else if (cellPop > 0 & cellPop <= 5)
+                            {
+                                tempMatrix[i][j] = 1;
+                            }
+                            else if (cellPop > 5 & cellPop <= 25)
+                            {
+                                tempMatrix[i][j] = 1.5;
+                            }
+                            else if (cellPop > 25 & cellPop <= 100)
+                            {
+                                tempMatrix[i][j] = 2.5;
+                            }
+                            else
+                            {
+                                tempMatrix[i][j] = 5;
+                            }
+                        }
+                        else
+                        {
+                            tempMatrix[i][j] = 5;
+                        }
+                        break;
+                    case 31://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(2));
                         break;
-                    case 41:
-                    case 42:
-                    case 43:
+                    case 41://yes
+                    case 42://NO
+                    case 43://NO
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(3));
                         break;
-                        
-                    case 52:
+                    case 52://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(4));
                         break;
-                        
-                    case 71:
+                    case 71://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(5));
                         break;
-                    case 81:
+                    case 81://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(6));
                         break;
-                    case 82:
+                    case 82://yes
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(7));
                         break;
-                    case 90:
-                    case 95:
+                    case 90://yes
+                    case 95://no
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(8));
                         break;
+
                     default:
                         tempMatrix[i][j] = (int) headerInfo.get("NoData");
-
                 }
-
-        }
+            }
         }
         Dictionary costList = new Hashtable();
-        int cell = 0;
-        for (int i = 0; i < tempMatrix.length; i++) {
-            for (int j = 0; j < tempMatrix[0].length; j++) {
-                    cell = cell +1;
-                    
+        int cell = 1;
+        for (int i = 0; i < tempMatrix.length; i++)
+        {
+            for (int j = 0; j < tempMatrix[0].length; j++)
+            {
+                    //the 9 elements long array solves for the value of a single cell
+                    //first cell is 1 not 0
                     double[] landKernel = kernel(tempMatrix, i, j);
                     double[] costs = solveLand(landKernel);
                     costList.put(cell, costs);
+                    cell+=1;
             }
         }
-        
-        
        return costList;
     }
-    
+    private double cellPop(Dictionary headerInfo,double[][] array, int i, int j) {
+        //array is the population matrix values
+        double pop = array[i][j];
+        double lon = (Double) headerInfo.get("xllCorner");
+        double lat = (Double) headerInfo.get("xllCorner") + ( ( (int) headerInfo.get("Rows") - (i + 1) ) * (Double) headerInfo.get("CellSize")) + ((Double) headerInfo.get("CellSize")/ 2 );
+
+        double cHeight = haversineDistance(lat, lon, lat + (Double) headerInfo.get("CellSize"), lon);
+        double cWidth = haversineDistance(lat, lon, lat, lon + (Double) headerInfo.get("CellSize"));
+        double cArea = cWidth * cHeight;
+        return pop / cArea;
+    }
+
+    public double[] kernel(double[][] array, int i, int j)
+    {
+        //array is temp matrix
+        double[] kernel = new double[9];
+        for (int r = 0; r < 9; r++)
+        {
+            int row = rows[r];
+            int col = cols[r];
+            /* array[0].length
+                { __|__
+                |{ , , },
+  array.length--|{ , , },
+                |{ , , }
+                }
+             */
+            //(row,col)
+//r=0 (0,0) 1(-1,0) 2(0,1) 3(1,0) 4(0,-1) 5(-1,-1) 6(-1,1) 7(1,1) 8(1,-1)
+
+            if ( (i + row) < 0 || (i + row) > array.length - 1 || (j + col) < 0 || (j + col) > array[0].length - 1 )
+            {
+                kernel[r] = -9999;
+            }
+            else
+            {
+                kernel[r] = array[i + row][j + col];
+                //[ , , , , , , , , , , ]
+            }
+        }
+        return kernel;
+    }
+
+    public double[] solveLand(double[] costKernel) {
+        double[] costs = new double[9];
+        for (int j = 0; j < 9; j++)
+        {
+            if (costKernel[j] == -9999)
+            {
+                costs[j] = -9999;
+            }
+            else
+            {
+                costs[j] = ( ((costKernel[0] + costKernel[j]) / 2 ));
+            }
+        }
+        return costs;
+    }
+
     public Dictionary landRowInput(boolean isSelectedPop, String path) throws FileNotFoundException, IOException, Exception {
 
         //Read in landcover weighting
@@ -224,12 +302,12 @@ public class costSolver {
         Dictionary headerInfo = getHeader(path);
         double[][] nlcdMatrix = getDetails(headerInfo, path);
         double[][] fedMatrix = getDetails(headerInfo, "Datasets/ASCII/fed.asc");
-        
+
 
         //Create Output matrix
         double[][] tempMatrix = new double[nlcdMatrix.length][nlcdMatrix[0].length];
         double[][] popMatrix = null;
-        
+
         //Read in population file if it exists
         if (isSelectedPop == true) {
             System.out.println("Importing Population Data ...");
@@ -242,7 +320,7 @@ public class costSolver {
                 //no data using mask
                 int value = (int) nlcdMatrix[i][j];
                 int a = (int) headerInfo.get("NoData");
-                
+
                 if (nlcdMatrix[i][j] == 21 || nlcdMatrix[i][j] == 22 || nlcdMatrix[i][j] == 23 || nlcdMatrix[i][j] == 24) {
                     if (isSelectedPop != false) {
 
@@ -271,7 +349,7 @@ public class costSolver {
                         break;
                     case 12:
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(1));
-                        break;    
+                        break;
                     case 31:
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(2));
                         break;
@@ -280,11 +358,11 @@ public class costSolver {
                     case 43:
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(3));
                         break;
-                        
+
                     case 52:
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(4));
                         break;
-                        
+
                     case 71:
                         tempMatrix[i][j] = Double.parseDouble((String) weights.get(5));
                         break;
@@ -302,14 +380,14 @@ public class costSolver {
                         tempMatrix[i][j] = (int) headerInfo.get("NoData");
 
                 }
-            
+
             }
         }
-        
+
         for (int i = 0; i < fedMatrix.length; i++) {
 
             for (int j = 0; j < fedMatrix[0].length; j++) {
-                    
+
                     if (fedMatrix[i][j] == (int) headerInfo.get("NoData")) {
                         tempMatrix[i][j] = -9999;
                     } //BLM
@@ -335,7 +413,7 @@ public class costSolver {
                     } //NPS
                     else if (fedMatrix[i][j] == 6) {
                         tempMatrix[i][j] = tempMatrix[i][j] * 2;
-                     
+
 //                        System.out.println(tempMatrix[i][j]);
                     } //Other
                     else if (fedMatrix[i][j] == 7) {
@@ -359,43 +437,47 @@ public class costSolver {
                     }
                 }
             }
-        
+
         Dictionary costList = new Hashtable();
         int cell = 0;
         for (int i = 0; i < tempMatrix.length; i++) {
             for (int j = 0; j < tempMatrix[0].length; j++) {
                     cell = cell +1;
-                    
+
                     double[] landKernel = kernel(tempMatrix, i, j);
                     double[] costs = solveLand(landKernel);
                     costList.put(cell, costs);
             }
         }
-        
-        
        return costList;
     }
-    
-    
-    private double cellPop(Dictionary headerInfo,double[][] array, int i, int j) {
-        double pop = array[i][j];
-        double lon = (Double) headerInfo.get("xllCorner");
-        double lat = (Double) headerInfo.get("xllCorner") + (((int) headerInfo.get("Rows") - (i + 1)) * (Double) headerInfo.get("CellSize")) + ((Double) headerInfo.get("CellSize")/ 2);
-        double cHeight = haversineDistance(lat, lon, lat + (Double) headerInfo.get("CellSize"), lon);
-        double cWidth = haversineDistance(lat, lon, lat, lon + (Double) headerInfo.get("CellSize"));
-        double cArea = cWidth * cHeight;
-        return pop / cArea;
+
+
+    public double sin(double angle){
+        return Math.sin(angle);
     }
-
+    public double cos(double angle){
+        return Math.cos(angle);
+    }
+    public double pow(double number,double pow){
+        return Math.pow(number, pow);
+    }
+    public double hav(double angle){
+        return pow(sin(angle/2),2);
+    }
+    public double havcentral(double lat1, double lon1, double lat2,double lon2){
+        return hav(toRad(lat2-lat1)) + cos(toRad(lat1))*cos(toRad(lat2))*hav(toRad(lon2-lon1));
+    }
     private double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
-
-        double earthRadius = 6369.15;
+        //different results cuz differnce in conversion toRad(lat2-lat1) and toRad(lat2)-toRad(lat1)
+        final double earthRadius = 6369.15;
         double latDistance = toRad(lat2 - lat1);
         double lonDistance = toRad(lon2 - lon1);
-        double a = (Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2));
-        double c = (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        double a =havcentral(lat1,lon1,lat2,lon2);
+        //double c = (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        //double c = Math.acos(1-2*a);
+        //the one below is the nearest conversion
+        double c = 2*Math.asin(Math.sqrt(a));
         double distance = earthRadius * c;
         return distance;
     }
@@ -404,43 +486,41 @@ public class costSolver {
     private double toRad(double latChange) {
         return (double) (latChange * Math.PI / 180);
     }
-    
+
     public Dictionary solveDistance(Dictionary headerInfo, double[][] distMult, Dictionary costList, String path) throws IOException {
         double[][] nlcdMatrix = getDetails(headerInfo, path);
 
-        int indexNew = 0;
+        int indexNew = 1;
         for (int z = 0; z < nlcdMatrix.length; z++) {
             for (int j = 0; j < nlcdMatrix[0].length; j++) {
-                indexNew = indexNew + 1;
-                if (indexNew < costList.size()) {
+
+                if (indexNew < costList.size())
+                {
                     double[] costs = (double[]) costList.get(indexNew);
-                    for (int i = 0; i < costs.length; i++) {
+                    for (int i = 0; i < costs.length; i++)
+                    {
                         if (i == 2 || i == 4) {
                             costs[i] = round((costs[i]) * distMult[i][0], 2);
-                        } else if (i == 1 || i == 3) {
-                            costs[i] = round((costs[i]) * distMult[i][1], 2);
-                        } else if (i == 5 || i == 6) {
-                            costs[i] = round((costs[i]) * distMult[i][2], 2);
-                        } else {
+                        }
+                         else if (i == 1 || i == 3) {
+                            costs[i] = round((costs[i]) * distMult[i][1], 2);}
+                        else if (i == 5 || i == 6) {
+                            costs[i] = round((costs[i]) * distMult[i][2], 2);}
+                         else
+                        {
                             costs[i] = round((costs[i]) * distMult[i][3], 2);
                         }
-
-                        costList.put(indexNew, costs);
+                         costList.put(indexNew, costs);
                     }
-
                 }
+                indexNew +=1;
             }
         }
-
         return costList;
-
     }
-    
 
-    
-    
     public Dictionary slopeInput(Dictionary costList, boolean isSelectedAspect, String path) throws IOException {
-        
+
         Dictionary headerInfo = getHeader(path);
         double[][] slopeMatrix = getDetails(headerInfo, path);
         double[][] tempMatrixSlope = new double[slopeMatrix.length][slopeMatrix[0].length];
@@ -457,7 +537,7 @@ public class costSolver {
                 }
             }
         }
-        
+
         for (int i = 0; i < slopeMatrix.length; i++) {
             for (int j = 0; j < slopeMatrix[0].length; j++) {
                 if (slopeMatrix[i][j] == (int) headerInfo.get("NoData")) {
@@ -485,7 +565,7 @@ public class costSolver {
                 }
             }
         }
-        
+
         int indexNew = 0;
         for (int i = 0; i < tempMatrixSlope.length; i++) {
             for (int j = 0; j < tempMatrixSlope[0].length; j++) {
@@ -497,35 +577,32 @@ public class costSolver {
                     costs = solveSlope(costs, slopeKernel,aspectKernel);
                     costList.put(indexNew, costs);
                 }
-
             }
         }
         return costList;
-       
     }
-    
+
     private int[][] cellCount() throws FileNotFoundException, IOException {
-        
+
         Dictionary headerInfo = getHeader("Datasets/ASCII/landcover.asc");
         int[][] cellMatrix = new int[(int)headerInfo.get("Rows")][(int)headerInfo.get("Columns")];
         int z = 1;
         for (int i = 0; i < cellMatrix.length; i++) {
             for (int j = 0; j < cellMatrix[0].length; j++) {
                 cellMatrix[i][j] = z;
-                
+
                 z = z + 1;
             }
         }
         return cellMatrix;
     }
-    
-    
+
     public ArrayList cells() throws IOException {
         ArrayList cellList = new ArrayList();
         Dictionary headerInfo = getHeader("Datasets/ASCII/landcover.asc");
         int rows = (int)headerInfo.get("Rows");
         int columns = (int)headerInfo.get("Columns");
-//        int cellAmount = rows * columns; 
+//        int cellAmount = rows * columns;
         int[][] cellNumber = cellCount();
 //        for (int  = 0; i < 9; i++)
         for (int i = 0; i < rows; i++) {
@@ -534,16 +611,13 @@ public class costSolver {
                 cellList.add(cellKernel);
             }
         }
-
         return cellList;
     }
-    
-    
-    
+
      private double[] solveSlope(double[] costs, double[] slopeKernel, double[] aspectKernel){
         double[] kernel = slopeKernel;
-      
-        for (int j = 1; j < 9; j++){ 
+
+        for (int j = 1; j < 9; j++){
                     if(slopeKernel[0] >0){
                         if (slopeKernel[0] > 1 & (j == 1 || j == 2 || j == 3 || j == 4)) {
 
@@ -560,9 +634,8 @@ public class costSolver {
                             } else {
                                 kernel[0] = slopeKernel[0];
                             }
-
                         }
-//
+
                         else if (slopeKernel[j] != -9999 & slopeKernel[j] > 1 & (j == 1 || j == 2 || j == 3 || j == 4)) {
 
                             int zAdjust = (j - 1) * 2 + 1;
@@ -606,7 +679,7 @@ public class costSolver {
                                 kernel[j] = slopeKernel[j];
                             }
                         }
-                        
+
                     double value = (kernel[0] + kernel[j]) / 2;
 
                     costs[j] = costs[j] + value;
@@ -614,7 +687,7 @@ public class costSolver {
                 }
         return costs;
     }
-    
+
     public double [][] aspectInput() throws FileNotFoundException, IOException {
 
             Dictionary headerInfo = getHeader("Datasets/ASCII/aspect.asc");
@@ -664,7 +737,7 @@ public class costSolver {
         System.out.println("Construction Costs continue ...");
         return costList;
     }
-    
+
     public Dictionary addRiverCrossings(Dictionary costList, Dictionary headerInfo, String path) throws IOException {
         Dictionary roadInfo = getHeader(path);
         double[][] roadMatrix = getDetails(roadInfo, path);
@@ -679,12 +752,11 @@ public class costSolver {
                     double[] newCosts = crossIncrease(costs,roadMatrix, i, j, weight);
                     costList.put(indexNew, newCosts);
                 }
-
             }
         }
         return costList;
     }
-    
+
     public Dictionary addRoadCrossings(Dictionary costList, Dictionary headerInfo, String path) throws IOException {
         Dictionary roadInfo = getHeader(path);
         double[][] roadMatrix = getDetails(roadInfo, path);
@@ -699,12 +771,11 @@ public class costSolver {
                     double[] newCosts = crossIncrease(costs,roadMatrix, i, j, weight);
                     costList.put(indexNew, newCosts);
                 }
-
             }
         }
         return costList;
     }
-    
+
     public Dictionary addRailCrossings(Dictionary costList, Dictionary headerInfo, String path) throws IOException {
         Dictionary roadInfo = getHeader(path);
         double[][] roadMatrix = getDetails(roadInfo, path);
@@ -719,45 +790,51 @@ public class costSolver {
                     double[] newCosts = crossIncrease(costs,roadMatrix, i, j, weight);
                     costList.put(indexNew, newCosts);
                 }
-
             }
         }
         return costList;
     }
-    
+
     public Dictionary addPipelineCorridor(Dictionary costList, Dictionary headerInfo, String path) throws IOException {
+
         Dictionary pipelineInfo = getHeader(path);
         double[][] pipeMatrix = getDetails(pipelineInfo, path);
         int indexNew = 0;
+        //indexNew is cell number
         double weight = .75;
         for (int i = 0; i < pipeMatrix.length; i++) {
             for (int j = 0; j < pipeMatrix[0].length; j++) {
                 indexNew = indexNew + 1;
                 if (indexNew < costList.size()) {
                     double[] costs = (double[]) costList.get(indexNew);
-                    double[] newCosts = rowDecrease(pipeMatrix,costs, j, j, weight);
+                    double[] newCosts = rowDecrease(pipeMatrix,costs, i, j, weight);
+                    //put overrides
                     costList.put(indexNew, newCosts);
                 }
-
             }
         }
         return costList;
     }
-    
 
-   
     public double[] rowDecrease(double[][] matrix, double[]costs, int i, int j, double weight) {
-
-        
         int z = (i * 3) + 1;
         int d = (j * 3) + 1;
 
         double[] kernel = kernel(matrix, z, d);
-
+       /* System.out.print("Kernel: ");
+        for (double k : kernel){
+            System.out.print(k+",");
+        }
+        System.out.println();
+        */
         for (int r = 1; r < 9; r++) {
 
-
             double[] kernel4 = kernel(matrix, (z + rows[r] * 3), (d + cols[r] * 3));
+     /*       System.out.print("Kernel4: ");
+            for (double l : kernel4){
+                System.out.print(l+",");
+            }
+            System.out.println(); */
 
             //case 1 slide 2
             if ((kernel[1] > 0 && kernel4[3] > 0) || (kernel[3] < 0 && kernel4[1] < 0)) {
@@ -781,24 +858,21 @@ public class costSolver {
             } else {
                 costs[r] = costs[r] * 1;
             }
-
         }
-
         return  costs;
-
     }
-    
+
     public double[] crossIncrease(double[] costs, double[][] matrix, int i, int j, double weight) {
 
         double[] increaseValue = new double[9];
         int z = (i * 3) + 1;
         int d = (j * 3) + 1;
         double[] kernel = kernel(matrix, z, d);
-        
+
         for (int r = 1; r < 9; r++) {
-            
+
             switch(r){
-                
+
             case 1:
                 double[] kernel2 = kernel(matrix, z - 3, d);
                 //Case 1
@@ -850,9 +924,7 @@ public class costSolver {
                 } else {
                     costs[r] = costs[r] * weight;
                 }
-
             break;
-            
             case 3:
                 double[] kernel4 = kernel(matrix, z + 3, d);
                 //Case 1
@@ -878,7 +950,7 @@ public class costSolver {
                     costs[r] = costs[r] * weight;
                 }
             break;
-            
+
             case 4:
                   double[] kernel5 = kernel(matrix, z, d - 3);
                   //Case 1
@@ -905,7 +977,7 @@ public class costSolver {
                       costs[r] = costs[r] * weight;
                   }
             break;
-//            
+//
             case 5:
                   double[] kernel6 = kernel(matrix, z, d - 3);
                   //Case 1
@@ -916,7 +988,7 @@ public class costSolver {
                   }
 
             break;
-            
+
             case 6:
                 double[] kernel7 = kernel(matrix, z, d - 3);
                 //Case 1
@@ -946,83 +1018,14 @@ public class costSolver {
                     costs[r] = costs[r] * weight;
                 }
             break;
-            
-        
             }
         }
-        
+
         return costs;
     }
 
-    public double[] solveLand(double[] costKernel) {
-        double[] costs = new double[9];
-        for (int j = 0; j < 9; j++) {
-            if (costKernel[j] == -9999) {
-                costs[j] = -9999;
-            } else {
-                costs[j] = (costs[j] + ((costKernel[0] + costKernel[j]) / 2));
-            
-        }
-        
-    }
-        return costs;
-    }
-  
-    private int[] getColPositions() {
-
-        int[] xPosition = new int[9];
-        xPosition[0] = 0;
-        xPosition[1] = 0;
-        xPosition[2] = 1;
-        xPosition[3] = 0;
-        xPosition[4] = -1;
-        xPosition[5] = -1;
-        xPosition[6] = 1;
-        xPosition[7] = 1;
-        xPosition[8] = -1;
-        return xPosition;
-
-    }
-
-    private int[] getRowPositions() {
-
-        int[] yPosition = new int[9];
-        yPosition[0] = 0;
-        yPosition[1] = -1;
-        yPosition[2] = 0;
-        yPosition[3] = 1;
-        yPosition[4] = 0;
-        yPosition[5] = -1;
-        yPosition[6] = -1;
-        yPosition[7] = 1;
-        yPosition[8] = 1;
-        return yPosition;
-
-    }
-    
-    
     //Kernel for calculations
-    public double[] kernel(double[][] array, int i, int j) {
 
-        double[] kernel = new double[9];
-
-        for (int r = 0; r < 9; r++) {
-
-            int row = rows[r];
-            int col = cols[r];
-
-            if ((i + row) < 0 || (i + row) > array.length - 1 || (j + col) < 0 || (j + col) > array[0].length - 1) {
-                kernel[r] = -9999;
-            } else {
-                kernel[r] = array[i + row][j + col];
-
-            }
-
-        }
-
-        return kernel;
-    }
-    
     //Kernel for calculations
     public int[] cellKernel(int[][] array, int i, int j) {
 
@@ -1033,13 +1036,14 @@ public class costSolver {
             int row = rows[r];
             int col = cols[r];
 
-            if ((i + row) < 0 || (i + row) > array.length - 1 || (j + col) < 0 || (j + col) > array[0].length - 1) {
+            if ((i + row) < 0 || (i + row) > array.length - 1 || (j + col) < 0 || (j + col) > array[0].length - 1)
+            {
                 kernelInt[r] = -9999;
-            } else {
-                kernelInt[r] = array[i + row][j + col];
-
             }
-
+            else
+            {
+                kernelInt[r] = array[i + row][j + col];
+            }
         }
         return kernelInt;
     }
@@ -1053,11 +1057,10 @@ public class costSolver {
                 }
             }
         }
-
         return activeNodes;
-
     }
-    
+
+    //literally just rounds to the first 2 decimal places cuz that didnt exist before??
     public double round(double value, int places) {
         if (places < 0) {
             throw new IllegalArgumentException();
@@ -1066,8 +1069,7 @@ public class costSolver {
         bd = bd.setScale(places, RoundingMode.HALF_UP);
         return bd.doubleValue();
     }
-    
-    
+
     public void writeTxt(Dictionary costList, Dictionary headerInfo, BufferedWriter outPut) throws IOException {
         
         double[][] cellMatrix = getDetails(headerInfo, "Datasets/ASCII/landcover.asc");
@@ -1111,6 +1113,8 @@ public class costSolver {
 
                 //Prints the cells
                 ArrayList<Integer> printCells = new ArrayList<Integer>();
+
+
                 printCells.add(cells[0]);
                 for (int z = 1; z < 9; z++) {
                     if (costs[z] > 0) {
@@ -1118,7 +1122,10 @@ public class costSolver {
 
                     }}
                     // printing the cells
+                System.out.println(printCells);
+
                     if (printCells.size() > 1) {
+                        //[37737, 37517, 37738, 37957, 37736, 37516, 37518, 37958, 37956] example format
                         String x = printCells.toString().replace('[', ' ');
                         x = x.replace(']', ' ');
                         x = x.trim().replace(',', '\t');
@@ -1127,18 +1134,15 @@ public class costSolver {
                     }
                 }
 
-//
 //            //Prints the costs
                 List<Double> printCosts = new ArrayList<>();
 
-                for (int z = 1; z < 9; z++) {
-
+                for (int z = 1; z < 9; z++)
+                {
                     if (costs[z] > 0) {
                         printCosts.add(round(costs[z], 2));
-
                     }
                 }
-//
                 if (printCosts.size() > 0) {
                     String x = printCosts.toString().replace('[', ' ');
 
@@ -1149,8 +1153,6 @@ public class costSolver {
                     outPut.newLine();
                 }
             }
-
-        
         outPut.close();
     }
     
@@ -1171,7 +1173,6 @@ public class costSolver {
             double lon1 = xllCorner;
             double lon2 = xllCorner + cellSize;
             cellMatrix[i][0] = haversineDistance(lat1, lon1, lat2, lon2);
-
         }
 
         //y multiplier
@@ -1194,7 +1195,6 @@ public class costSolver {
             double lon2 = xllCorner + cellSize;
 
             cellMatrix[i][2] = haversineDistance(lat1, lon1, lat2, lon2);
-
         }
 
         //XY-down
@@ -1206,11 +1206,7 @@ public class costSolver {
             double lon2 = xllCorner + cellSize;
 
             cellMatrix[i][3] = haversineDistance(lat1, lon1, lat2, lon2);
-
         }
-
         return cellMatrix;
-
     }
-    
 }
